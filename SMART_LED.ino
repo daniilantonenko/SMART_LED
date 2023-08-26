@@ -2,14 +2,6 @@
 // TODO: read config ini - <IniFile.h> or #include <ini.h>
 // TODO: choose a unique device name (DEVICE_NAME) https://www.home-assistant.io/integrations/http/#sensor
 
-// DO: Connected to Home Assistant MQTT
-/* /config/configuration.yaml
-mqtt:
-  sensor:
-    - state_topic: "home/fan"
-      name: "MQTT Fan"
-*/
-
 #include "config.h"
 
 #include <ESP8266WiFi.h>
