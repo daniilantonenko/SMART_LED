@@ -1,6 +1,13 @@
-/*
-MQTT 
-192.168.0.139:8123
+// TODO: Start Config system - ConfigAssist-ESP32-ESP8266
+// TODO: read config ini - <IniFile.h>
+// TODO: choose a unique device name (DEVICE_NAME) https://www.home-assistant.io/integrations/http/#sensor
+
+// DO: Connected to Home Assistant MQTT
+/* /config/configuration.yaml
+mqtt:
+  sensor:
+    - state_topic: "home/fan"
+      name: "MQTT Fan"
 */
 
 #include <ESP8266WiFi.h>
@@ -15,21 +22,66 @@ MQTT
 
 const char* ssid = STASSID;
 const char* password = STAPSK;
-
 const char* mqtt_server = "192.168.0.139";
 const int mqtt_port = 1883;
 
-// Use WiFiClient class to create TCP connections
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-void setup() {
-  Serial.begin(115200);
+/*=============== Callback MQTT ===============*/
 
-  // We start by connecting to a WiFi network
+void callbackMqtt(char* topic, byte* payload, unsigned int length) {
 
+  Serial.print("Message arrived in topic: ");
+  Serial.println(topic);
+
+  Serial.print("Message: ");
+
+  String message;
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];  //Conver *byte to String
+  }
+  Serial.print(message);
+  /*
+  if(message == "0") {digitalWrite(relay,LOW);}
+  if(message == "1") {digitalWrite(relay,HIGH);}
+  */
   Serial.println();
+}
+
+/*=============== Reconnect MQTT ===============*/
+
+void reconnectMqtt() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str(),"mqttdevices", "aDk1T3P$81XT")) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("home/status", "on");
+      // ... and resubscribe
+      client.subscribe("home/");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+/*=============== Setup WIFI ===============*/
+
+void setupWifi() {
+
+  delay(10);
+  // We start by connecting to a WiFi network
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
@@ -42,54 +94,40 @@ void setup() {
     Serial.print(".");
   }
 
+  randomSeed(micros());
+
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
-
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(MQTTcallback);
-  while (!client.connected()) {
-    Serial.println("Connecting to MQTT...");
-    if (client.connect("ESP8266", "daniilantonenko", "ghbdtngjrf")) {
-      Serial.println("connected");
-    } else {
-      Serial.print("failed with state ");
-      Serial.println(client.state());
-      delay(2000);
-    }
-  }
-  client.subscribe("homeassistant/da-smart/led1/");
-
-  pinMode(MOSFET, OUTPUT);  // Подключение ШИМ реле
 }
 
-void MQTTcallback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message received in topic: ");
-  Serial.println(topic);
-  Serial.print("Message:");
-  String message;
-  for (int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  Serial.print(message);
+/*=============== Setup ===============*/
 
-  /*
-  if (message == "on") {
-    digitalWrite(LED, HIGH);
-  } else if (message == "off") {
-    digitalWrite(LED, LOW);
-  }
-  Serial.println();
-  Serial.println("-----------------------");
-  */
+void setup() {
+  Serial.begin(115200);
 
-  client.publish("homeassistant/da-smart/led1/", "Led 1 Activated");
+  setupWifi();
+
+  client.setServer(mqtt_server,mqtt_port);
+  client.setCallback(callbackMqtt);
+
+  pinMode(MOSFET, OUTPUT);
 }
+
+/*=============== LOOP ===============*/
 
 void loop() {
+
+   if (!client.connected()) {
+    reconnectMqtt();
+  }
+  client.loop();
+
+  Serial.println("Fan: ");
   
-  client.publish("homeassistant/da-smart/led1/", "Плавное появление");
+  client.publish("home/fan", "Плавное появление");
+  Serial.println("Плавное появление");
   // плавное включение
   for (int i = 0; i <= 1023; i++) {
     analogWrite(MOSFET, i);
@@ -97,7 +135,10 @@ void loop() {
     delay(10);
   }
 
-  client.publish("homeassistant/da-smart/led1/", "Плавное затухание");
+  delay(5000);
+
+  client.publish("home/fan", "Плавное затухание");
+  Serial.println("Плавное затухание");
   //плавное выключение
   for (int i = 1023; i >= 0; i--) {
     analogWrite(MOSFET, i);
@@ -107,35 +148,4 @@ void loop() {
 
   //analogWrite(MOSFET, 1023);
 
-
-/*
-  for (int dutyCycle = 0; dutyCycle < 1023; dutyCycle++) {
-    // изменение яркости светодиода с помощью ШИМ
-    analogWrite(MOSFET, dutyCycle);
-    delay(1);
-  }
-
-  // уменьшиние яркости светодиода
-  for (int dutyCycle = 1023; dutyCycle > 0; dutyCycle--) {
-    // изменение яркости светодиода с помощью ШИМ
-    analogWrite(MOSFET, dutyCycle);
-    delay(1);
-  }
-  
-*/
-/*
-  int i;
-  int CurrentPhaze=0; //фаза
-  float sine [1000]; //массив 1000 отсчетов
-  for (i=0; i<1000; i++){
-    sine[i]=sin(2*3.1415*0.001*(i+CurrentPhaze));
-    //printf("%f\n", sine[i]);
-    analogWrite(MOSFET, sine[i]);
-    Serial.println(sine[i]);
-    delay(5);
-  }
-  */
-  //delay(100);
-
-  client.loop();
 }
