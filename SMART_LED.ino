@@ -1,5 +1,5 @@
-// TODO: Start Config system - ConfigAssist-ESP32-ESP8266
-// TODO: read config ini - <IniFile.h>
+// TODO: Startup Config system - ConfigAssist-ESP32-ESP8266
+// TODO: read config ini - <IniFile.h> or #include <ini.h>
 // TODO: choose a unique device name (DEVICE_NAME) https://www.home-assistant.io/integrations/http/#sensor
 
 // DO: Connected to Home Assistant MQTT
@@ -10,21 +10,12 @@ mqtt:
       name: "MQTT Fan"
 */
 
+#include "config.h"
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#ifndef STASSID
-#define STASSID "da-home-2G"
-#define STAPSK "kakoyhochesh"
-#endif
-
 #define MOSFET 5  // GPOO5 или D1
-
-const char* ssid = STASSID;
-const char* password = STAPSK;
-const char* mqtt_server = "192.168.0.139";
-const int mqtt_port = 1883;
-
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -84,10 +75,10 @@ void setupWifi() {
   // We start by connecting to a WiFi network
   Serial.println();
   Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.println(wifi_ssid);
 
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(wifi_ssid, wifi_pass);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -106,7 +97,7 @@ void setupWifi() {
 
 void setup() {
   Serial.begin(115200);
-
+  
   setupWifi();
 
   client.setServer(mqtt_server,mqtt_port);
