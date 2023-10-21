@@ -10,6 +10,7 @@ Development is carried out according to the method of simplification for the end
  - MOS FET (XY-MOS)
  - SAMIORE DD4012SA 5V
  - WAVGAT AC-DC 12V 3A (XPJ-02C)
+ - BTF-FCOB LED STRIP 528 12V LED
 
 ## Software
  - Home Assistant 2023.1.0
