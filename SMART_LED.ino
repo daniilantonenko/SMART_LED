@@ -7,10 +7,50 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define MOSFET 5  // GPOO5 или D1
+// #define MOSFET 5  // GPOO5 или D1
+#define MOSFET 4  // GPOO4 или D2
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+// Device settings
+const char* mainTopic = "home/led"; // MQTT topic where values are published
+
+// MQTT: topics
+const char* MQTT_LIGHT_STATE_TOPIC = "home/led/light/status";
+const char* MQTT_LIGHT_COMMAND_TOPIC = "home/led/light/switch";
+
+// payloads by default (on/off)
+const char* LIGHT_ON = "ON";
+const char* LIGHT_OFF = "OFF";
+
+boolean m_light_state = false; // light is turned off by default
+
+int updateInterval = 1000; // Interval in milliseconds
+char buffer[4]; // Buffer to store the sensor value
+int light = 255;
+
+float calcLight(float x){
+  return 0.0000333252 * pow(x, 3) - 0.00772894 * pow(x, 2) + 0.803827 * x - 0.72969;
+}
+
+// function called to publish the state of the light (on/off)
+void publishLightState() {
+  if (m_light_state) {
+    client.publish(MQTT_LIGHT_STATE_TOPIC, LIGHT_ON, true);
+  } else {
+    client.publish(MQTT_LIGHT_STATE_TOPIC, LIGHT_OFF, true);
+  }
+}
+
+// function called to turn on/off the light
+void setLightState() {
+  if (m_light_state) {
+    digitalWrite(MOSFET, HIGH);
+  } else {
+    digitalWrite(MOSFET, LOW);
+  }
+}
 
 /*=============== Callback MQTT ===============*/
 
@@ -31,6 +71,39 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
   if(message == "1") {digitalWrite(relay,HIGH);}
   */
   Serial.println();
+  
+  if(!strcmp(topic, MQTT_LIGHT_COMMAND_TOPIC)){
+    light = calcLight(message.toInt());
+    //light = message.toInt();
+    Serial.println(light);
+  }else{
+  }
+/*
+  // concat the payload into a string
+  String payload;
+  for (uint8_t i = 0; i < length; i++) {
+    payload.concat((char)length[i]);
+  }
+  
+  // handle message topic
+  if (String(MQTT_LIGHT_COMMAND_TOPIC).equals(p_topic)) {
+    // test if the payload is equal to "ON" or "OFF"
+    if (payload.equals(String(LIGHT_ON))) {
+      if (m_light_state != true) {
+        m_light_state = true;
+        setLightState();
+        publishLightState();
+      }
+    } else if (payload.equals(String(LIGHT_OFF))) {
+      if (m_light_state != false) {
+        m_light_state = false;
+        setLightState();
+        publishLightState();
+      }
+    }
+  }
+  */
+  
 }
 
 /*=============== Reconnect MQTT ===============*/
@@ -48,7 +121,7 @@ void reconnectMqtt() {
       // Once connected, publish an announcement...
       client.publish("home/status", "on");
       // ... and resubscribe
-      client.subscribe("home/");
+      client.subscribe(MQTT_LIGHT_COMMAND_TOPIC);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -96,6 +169,7 @@ void setup() {
   client.setCallback(callbackMqtt);
 
   pinMode(MOSFET, OUTPUT);
+  
 }
 
 /*=============== LOOP ===============*/
@@ -107,28 +181,8 @@ void loop() {
   }
   client.loop();
 
-  Serial.println("Fan: ");
-  
-  client.publish("home/fan", "Плавное появление");
-  Serial.println("Плавное появление");
-  // плавное включение
-  for (int i = 0; i <= 1023; i++) {
-    analogWrite(MOSFET, i);
-    //Serial.println(i);
-    delay(10);
-  }
+  analogWrite(MOSFET, light);
 
-  delay(5000);
-
-  client.publish("home/fan", "Плавное затухание");
-  Serial.println("Плавное затухание");
-  //плавное выключение
-  for (int i = 1023; i >= 0; i--) {
-    analogWrite(MOSFET, i);
-    //Serial.println(i);
-    delay(10);
-  }
-
-  //analogWrite(MOSFET, 1023);
+  //delay(updateInterval);
 
 }

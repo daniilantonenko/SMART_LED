@@ -33,14 +33,17 @@ const int mqtt_port = 1883;
 Edit file "configuration.yaml":
 ```yaml
 mqtt:
-  sensor:
-    - state_topic: "home/light"
-      name: "MQTT Light"
+  light:
+    - state_topic: "home/light/status"
+      name: "Smart LED"
+      command_topic: "home/light/switch"
+      brightness_state_topic: 'home/light/brightness/status'
+      optimistic: false
 ```
 
 ## Plan
 - [x] Connecting to Home Assistant MQTT
-- [ ] Setup integrations MQTT Light
+- [x] Setup integrations MQTT Light
 - [ ] Startup Config system
 - [ ] Read config ini form SD
 - [ ] Get a unique device name from Home Assistant
