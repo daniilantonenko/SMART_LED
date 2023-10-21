@@ -33,12 +33,13 @@ const int mqtt_port = 1883;
 Edit file "configuration.yaml":
 ```yaml
 mqtt:
-  light:
-    - state_topic: "home/light/status"
-      name: "Smart LED"
-      command_topic: "home/light/switch"
-      brightness_state_topic: 'home/light/brightness/status'
-      optimistic: false
+  - light:
+      name: 'Smart LED'
+      state_topic: 'home/led/light/status'
+      command_topic: 'home/led/light/switch'
+      payload_off: "OFF"
+      brightness_state_topic: 'home/led/light/brightness'
+      brightness_command_topic: 'home/led/light/brightness/set'
 ```
 
 ## Plan

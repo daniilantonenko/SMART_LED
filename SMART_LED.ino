@@ -7,8 +7,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-// #define MOSFET 5  // GPOO5 или D1
-#define MOSFET 4  // GPOO4 или D2
+#define MOSFET 4  // PWM pin (Wemos D1 mini Pro ESP 8266 GPOO4 or D2)
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -19,6 +18,7 @@ const char* mainTopic = "home/led"; // MQTT topic where values are published
 // MQTT: topics
 const char* MQTT_LIGHT_STATE_TOPIC = "home/led/light/status";
 const char* MQTT_LIGHT_COMMAND_TOPIC = "home/led/light/switch";
+const char* MQTT_LIGHT_BRIGHTNESS_TOPIC = "home/led/light/brightness/set";
 
 // payloads by default (on/off)
 const char* LIGHT_ON = "ON";
@@ -26,24 +26,33 @@ const char* LIGHT_OFF = "OFF";
 
 boolean m_light_state = false; // light is turned off by default
 
-int updateInterval = 1000; // Interval in milliseconds
+uint8_t updateInterval = 1000; // Interval in milliseconds
 char buffer[4]; // Buffer to store the sensor value
-int light = 255;
+int brightness = 255;
 
-float calcLight(float x){
+// buffer used to send/receive data with MQTT
+const uint8_t MSG_BUFFER_SIZE = 20;
+char m_msg_buffer[MSG_BUFFER_SIZE]; 
+
+// Correcting non-linear light changes
+float gradualBrightness(float x){
   return 0.0000333252 * pow(x, 3) - 0.00772894 * pow(x, 2) + 0.803827 * x - 0.72969;
 }
 
-// function called to publish the state of the light (on/off)
-void publishLightState() {
-  if (m_light_state) {
-    client.publish(MQTT_LIGHT_STATE_TOPIC, LIGHT_ON, true);
-  } else {
-    client.publish(MQTT_LIGHT_STATE_TOPIC, LIGHT_OFF, true);
-  }
+
+void setBrightness(){
+  int correctBrightness = gradualBrightness(brightness);
+  analogWrite(MOSFET, brightness);
 }
 
-// function called to turn on/off the light
+void publishBrightness() {
+  char cstr[16];
+  itoa(brightness, cstr, 10);
+  snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", brightness);
+  client.publish(MQTT_LIGHT_STATE_TOPIC, cstr, true);
+}
+
+// Function called to turn on/off the light
 void setLightState() {
   if (m_light_state) {
     digitalWrite(MOSFET, HIGH);
@@ -52,39 +61,29 @@ void setLightState() {
   }
 }
 
+// Function called to publish the state of the light (on/off)
+void publishLightState() {
+  if (m_light_state) {
+    client.publish(MQTT_LIGHT_STATE_TOPIC, LIGHT_ON, true);
+  } else {
+    client.publish(MQTT_LIGHT_STATE_TOPIC, LIGHT_OFF, true);
+  }
+}
+
 /*=============== Callback MQTT ===============*/
 
-void callbackMqtt(char* topic, byte* payload, unsigned int length) {
-
-  Serial.print("Message arrived in topic: ");
-  Serial.println(topic);
-
-  Serial.print("Message: ");
-
-  String message;
-  for (int i = 0; i < length; i++) {
-    message += (char)payload[i];  //Conver *byte to String
-  }
-  Serial.print(message);
-  /*
-  if(message == "0") {digitalWrite(relay,LOW);}
-  if(message == "1") {digitalWrite(relay,HIGH);}
-  */
-  Serial.println();
-  
-  if(!strcmp(topic, MQTT_LIGHT_COMMAND_TOPIC)){
-    light = calcLight(message.toInt());
-    //light = message.toInt();
-    Serial.println(light);
-  }else{
-  }
-/*
+void callbackMqtt(char* p_topic, byte* p_payload, unsigned int p_length) {
   // concat the payload into a string
   String payload;
-  for (uint8_t i = 0; i < length; i++) {
-    payload.concat((char)length[i]);
+  for (uint8_t i = 0; i < p_length; i++) {
+    payload.concat((char)p_payload[i]);
   }
-  
+
+  Serial.print("payload: ");
+  Serial.println(payload);
+  Serial.print("p_topic: ");
+  Serial.println(p_topic);
+
   // handle message topic
   if (String(MQTT_LIGHT_COMMAND_TOPIC).equals(p_topic)) {
     // test if the payload is equal to "ON" or "OFF"
@@ -101,9 +100,16 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
         publishLightState();
       }
     }
-  }
-  */
-  
+  } else if (String(MQTT_LIGHT_BRIGHTNESS_TOPIC).equals(p_topic)) {
+    brightness = payload.toInt();
+    if (brightness < 0 || brightness > 255) {
+      // do nothing...
+      return;
+    } else {
+      setBrightness();
+      publishBrightness();
+    }
+  }  
 }
 
 /*=============== Reconnect MQTT ===============*/
@@ -121,7 +127,9 @@ void reconnectMqtt() {
       // Once connected, publish an announcement...
       client.publish("home/status", "on");
       // ... and resubscribe
+      client.subscribe(MQTT_LIGHT_STATE_TOPIC);
       client.subscribe(MQTT_LIGHT_COMMAND_TOPIC);
+      client.subscribe(MQTT_LIGHT_BRIGHTNESS_TOPIC);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -175,14 +183,8 @@ void setup() {
 /*=============== LOOP ===============*/
 
 void loop() {
-
    if (!client.connected()) {
     reconnectMqtt();
   }
   client.loop();
-
-  analogWrite(MOSFET, light);
-
-  //delay(updateInterval);
-
 }
