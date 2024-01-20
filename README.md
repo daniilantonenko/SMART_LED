@@ -24,8 +24,13 @@ Create file "config.h":
 
 const char* wifi_ssid = "wifi_ssid";
 const char* wifi_pass = "wifi_pass";
+
 const char* mqtt_server = "mqtt_server";
+const char* mqtt_user = "mqtt_user";
+const char* mqtt_pass = "mqtt_pass";
 const int mqtt_port = 1883;
+
+String clientId = "NAME-";
 
 #endif
 ```
@@ -38,9 +43,12 @@ mqtt:
       name: 'Smart LED'
       state_topic: 'home/led/light/status'
       command_topic: 'home/led/light/switch'
-      payload_off: "OFF"
       brightness_state_topic: 'home/led/light/brightness'
       brightness_command_topic: 'home/led/light/brightness/set'
+      qos: 0
+      payload_on: "ON"
+      payload_off: "OFF"
+      optimistic: false
 ```
 
 ## Plan
@@ -50,3 +58,5 @@ mqtt:
 - [ ] Read config ini form SD
 - [ ] Get a unique device name from Home Assistant
 - [ ] Wiring diagram
+- [ ] Automatic update over the air 
+- [ ] Printing the device body on a 3D printer

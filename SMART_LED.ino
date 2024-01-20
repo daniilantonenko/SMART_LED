@@ -7,18 +7,15 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define MOSFET 4  // PWM pin (Wemos D1 mini Pro ESP 8266 GPOO4 or D2)
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 // Device settings
-const char* mainTopic = "home/led"; // MQTT topic where values are published
 
 // MQTT: topics
-const char* MQTT_LIGHT_STATE_TOPIC = "home/led/light/status";
-const char* MQTT_LIGHT_COMMAND_TOPIC = "home/led/light/switch";
-const char* MQTT_LIGHT_BRIGHTNESS_TOPIC = "home/led/light/brightness/set";
+constexpr const char* MQTT_LIGHT_STATE_TOPIC = "home/led/light2/status";
+constexpr const char* MQTT_LIGHT_COMMAND_TOPIC = "home/led/light2/switch";
+constexpr const char* MQTT_LIGHT_BRIGHTNESS_TOPIC = "home/led/light2/brightness/set";
 
 // payloads by default (on/off)
 const char* LIGHT_ON = "ON";
@@ -119,13 +116,13 @@ void reconnectMqtt() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Create a random client ID
-    String clientId = "ESP8266Client-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect(clientId.c_str(),"mqttdevices", "aDk1T3P$81XT")) {
+    if (client.connect(clientId.c_str(),mqtt_user, mqtt_pass)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("home/status", "on");
+      client.publish(MQTT_LIGHT_COMMAND_TOPIC, LIGHT_ON, true);
+      //client.publish("home/status", "on");
       // ... and resubscribe
       client.subscribe(MQTT_LIGHT_STATE_TOPIC);
       client.subscribe(MQTT_LIGHT_COMMAND_TOPIC);
